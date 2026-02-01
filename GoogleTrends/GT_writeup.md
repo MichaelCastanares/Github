@@ -1,13 +1,22 @@
 ### Challenges on the use of Google Trends for research
 
-In this blog, I highlight some potential pros and cons on the use of Internet searches (Google Trends) for research, drawing from my work on machine learning nowcasting models. Internet search volumes (i.e., Google Trends variables) serve as proxies to forecast macroeconomic indicators with publication lags. However, GT variables suffer from data quality issues, data shifts, scaling problems, and lack of representation. Several workarounds have been applied by other studies, such as data averaging/resampling, rescaling, and careful model training and specification. Understanding these limitations will help researchers (like me) be aware and cautious when using GT variables in modeling.
+Internet search volumes (Google Trends) have become popular proxies for nowcasting macroeconomic indicators. In my work on machine learning models, I've seen firsthand how these high-frequency indicators (GT variables) can circumvent the publication lags of official statistics.
 
+However, there is a trade-off. GT variables suffer from temporal 
+instability, backend scaling issues, and time-varying relevance—challenges 
+that can quietly undermine model performance if left unaddressed. In this blog, I highlight some potential pros and cons on the use of Internet searches (Google Trends) for research, drawing from my work on machine learning nowcasting models.
 
 **A. The potential** 
 
-**Captures cyclic trends.** GT variables capture cyclic (and not-so-cyclic) patterns of weather and national interest. The time-series for the keyword "weather" shows several peaks corresponding to supertyphoons that hit the Philippines such as: Haiyan (2013), Mangkhut (2018), Goni & Vamco (2020), Trami (2024), and Fung-wong (2025). Similarly, the search word "elections" tracks the regular presidential and midterm elections in the Philippines.
+**Real-time data availability.** GT variables are published at high frequency (from monthly to hourly), circumventing publication lags of official statistics. Several studies (including our work) leverage these high-frequency indicators to estimate (or "nowcast") the economy's growth in the current quarter. 
 
-**Real-time data availability.** GT variables are published at high frequency (from monthly to hourly), circumventing publication lags of official statistics. Several studies (including our work) leverage these high-frequency indicators to estimate (or "nowcast") the economy's growth in the current quarter. The figure below shows a comparison between the real property price index (BSP), rrepi, and GT searches for "real estate". Whether the GT variable "real estate" tracks rrepi merits further investigation (simple serial correlation of r = 0.63).
+The figure below shows a comparison between the quarterly residential real estate property price index (rrepi), and monthly GT searches for "real estate". The data lag clearly highlights the availability of GT searches before the current quarter statistic is published. The modest correlation between GT variable "real estate" and rrepi (r = 0.63) merits further investigation.
+
+**Tracks cyclic/non-cycline trends.** GT variables capture cyclic patterns (elections, holidays) and unexpected shocks (natural disasters, pandemic). In the Philippines, searches for "weather" spike during major typhoons: Haiyan (2013), Mangkhut (2018), Goni & Vamco (2020), and most recently Fung-wong (2025). The "elections" keyword reliably tracks the country's presidential and midterm cycles.
+
+This dual capability—both predictable trends and surprise events—makes GT 
+particularly valuable for economic monitoring. But these advantages come with significant caveats that researchers must 
+navigate carefully.
 
 **B. The limitation**
 
@@ -15,17 +24,39 @@ In this blog, I highlight some potential pros and cons on the use of Internet se
 
 *Solution:* Aggregate multiple extractions of the series at different times of the day. This approach has been examined by Medeiros and Pires (2021). This may be another blog post in itself.
 
-**Data shifts/scaling.** Google Trends does not return the actual level/volume of searches. On the backend, a sampled GT variable series is normalized to the maximum search volume within the subset, resulting in a relative Google search volume index. This backend-scaling procedure can cause artificial data shifts, particularly when recent searches of a keyword/category/topic are high.
+**Data shifts/scaling.** Google Trends doesn't report raw search volumes—it normalizes each series to its maximum value (0-100 scale). When recent searches surge, *historical data points get rescaled downward*, creating artificial level shifts.
 
-*Solution:* Check whether early data segments (e.g., 2014 and earlier) from recent extractions are consistent in levels with the training set. If not, rescaling/adjustment should be applied.
+This is particularly problematic when retraining models quarterly. Your 2020 data may suddenly look different in a 2025 extraction if a keyword spiked recently.
 
-**Lack of stable representation/relevance.** Trend topics may be relevant only during a given period. For example, searches for "covid" showed strong interest at the onset of the COVID-19 pandemic (mid-2020) and then tapered in 2023. Several studies have used "covid" searches to capture economic downturns; however, some researchers suggest avoiding it as the high signal-to-noise ratio tends to overfit models.
+*Solution:* Anchor your series to a fixed time period. Compare overlapping 
+segments between old and new extractions; rescale if early periods (pre-2015) show inconsistent levels.
 
-As a researcher, I often wonder: Does a decrease in "covid" searches signal better economic conditions? After 2023, does this view still hold? Will searches for "covid" be irrelevant in the future?
+**Lack of stable representation/relevance.** 
 
-*Solution:* Test GT variables with different model configurations and specifications (Askitas and Zimmermann, 2009; Woloszko, 2020; Mapa et al, 2023). Exercise judgment on temporal relevance.
+Perhaps the trickiest issue: trend topics can lose meaning over time.
 
-Indeed, Google Trends variables present a double-edged sword for economic research. While they offer real-time insights and can capture economic sentiment at high frequencies, researchers must navigate their inherent limitations—temporal instability, scaling inconsistencies, and time-varying relevance. The key to leveraging GT data effectively lies in understanding and addressing these challenges through robust methodology: multiple data extraction protocols, appropriate rescaling techniques, and well-thought-out model specifications. As the digital footprint of economic activity continues to grow, GT variables will remain a valuable, albeit imperfect, tool in the researcher's toolkit—one that requires both technical rigor and economic judgment to use effectively.
+Take "covid" searches. At the pandemic's onset (mid-2020), this keyword 
+strongly correlated with economic downturns. But by 2023, searches had tapered significantly. Does low "covid" search volume now signal *recovery* or simply *topic fatigue*?
+
+Several studies found that "covid" variables, despite their initial 
+predictive power, caused models to overfit due to their high signal-to-noise ratio during 2020-2021. The relationship wasn't stable—it was circumstantial.
+
+This raises broader questions: How do we model keywords whose economic 
+meaning shifts? When does a GT variable stop being informative?
+
+*Solution:* Test GT variables with different model configurations and specifications (Askitas and Zimmermann, 2009; Woloszko, 2020; Mapa et al, 2023). Use rolling-window validation set to assess whether relationships hold out-of-sample. Most importantly, exercise judgment—if a keyword's real-world relevance has faded, drop it regardless of in-sample fit.
+
+**Final thoughts**
+
+Google Trends variables are a valuable but imperfect tool. They offer 
+immediacy and granularity that official statistics cannot match, yet they 
+demand careful handling: multiple extraction protocols, scaling adjustments, and continuous validation of relevance.
+
+As economic activity leaves an ever-larger digital footprint, GT data will 
+remain part of the nowcasting toolkit. The challenge for researchers is 
+balancing technical rigor with economic intuition—knowing when these alternative indicators track the economy, and when they merely reflect noise.
+
+Disclaimer of AI use: Claude Sonnet was used to improve the flow of the discussion.
 
 
 References:
