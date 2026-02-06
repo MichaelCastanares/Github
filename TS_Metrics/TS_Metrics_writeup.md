@@ -1,15 +1,13 @@
-What information can we extract from a time series?
-
+"Useful metrics to kickstart your analysis on time-series"
 (in progress)
+
 
 # Intro:
 Time series data tells compelling stories about the past and hints at the future. Will housing prices in Australia continue rising? When does Australia see peak tourist arrivals? Understanding these patterns is vital for policy-making and business strategy.
 
 While time series analysis can seem daunting, specialized tools like Python's `tsfeatures` package make it accessible. In this post, I'll share practical metrics for characterizing time series—tools I've used in my work and MSDS studies to as pre-cursor analysis towards building time-series models.
 
-Let's test our prior knowledge of time-series features with the figure below. Can we describe some features in the time-series? What are some possible research questions we can further investigate?
-
-
+Before diving in, test your intuition with the figure below. What patterns do you notice? What research questions emerge?
 
 The time-series is the "number of nights stayed" by Australian resident in a particular state. The data is sourced from the National Visitor Survey (Tourism Research Australia)
 
@@ -23,19 +21,17 @@ Where:
 - $S_t$ = Seasonal/Cyclic component  
 - $\varepsilon_t$ = noise/innovation
 
+
 **Seasonality, and Cyclicity**. A time series is seasonal when it exhibits a regular, fixed pattern that aligns with the calendar (e.g., quarterly, annual) or weather  (e.g., summer, winter). Meanwhile, cyclic series exhibits patterns that follows other than calendar dates or season (e.g., business cycles, market cycles in Economics).
 
 - insights: Seasonal and cyclic patterns in the series are straight forward to model due to their regularity. Take the tourism data of Tasmania. Plotting the seasonal plot (stacking the time-series per year) shows that most tourist visits happen during January (Summer). Meanwhile, September (start of spring) show the least volume of tourist visits - suitable for those who want to avoid the crowd.
 
+
 **Trend**. Trend describes the general long-term movement of the time series whether its increasing, decreasing, or no change. As human, we also tend to think (or follow a straight path). We should be weary that when seeing an increasing series follow several paths (in the time steps): linearly increase, exponentially increase, exponential decrease, or remains the same.
 
+- insights: A simple way to extract a trend in the series is to take a moving average (MA). MA smoothens out the series removing high frequency changes. One can control the smoothness using the window size - larger window size results to a more smoother series revealing long-term trend.
 
-- insights: A simple way to extract a trend in the series is to take a moving average.
-
-In `tsfeatures`, we can calculate the strength of trend and seasonality. A parametric plot of the strength of trend and seasonality can be a straightforward analysis to assess several time series.
-
-
-
+In `tsfeatures`, we can calculate the strength of trend and seasonality. The mathematical definitions of the metrics is descrived in Hyndman's book (https://otexts.com/fpp2/seasonal-strength.html). A parametric plot of the strength of trend and seasonality can be a straightforward analysis to assess several time series.
 
 
 **Auto-correlation**. It's akin to "memory of the time series" - to what extent do past (or lagged) values are linearly related to the present values. Consider the simple example (an AR1 relation)
@@ -50,22 +46,29 @@ This is common but powerful relation which says that the present value is determ
 
 **Stationarity**. A series is stationary when its statistical properties (mean, variance) don't change over time. Most (linear) forecasting/statistical models assume/requires that the series is stationary. Statistical test for stationarity are Augmented Dickey-Fuller test and KPSS test.
 
-- insights: Most real-world time series tend to be non-stationary. Data pre-processing (e.g. taking the first-difference or growth rates) are often required before applying statistical models. Interestingly, complex machine learning models (e.g., Neural Networks and XGBoost) does not require the series to be stationary.
+- insights: Real-world time series are typically non-stationary. Preprocessing steps—such as taking first differences or computing annual growth rates—are often necessary before applying statistical models. Interestingly, complex machine learning models (e.g., Neural Networks, XGBoost) can handle non-stationary data directly.
+
+
+The figure illustrates an iterative 3-step process: transform series, compute statistic, and explore. For Australian Housing prices, we calculate annual growth rates and apply ADF/KPSS tests for stationarity. Results show NSW and Victoria are stationary, while Queensland and ACT require additional transformations before linear modeling.
 
 **Entropy**. This refers to the predictability (randomness) of the data. A Shannon spectral entropy metric has a value 0 for series with clear trend and seasonality and value close to 1 for noisy series.
 
 - insights: Use entropy to assess data quality and preprocessing effectiveness. Lower entropy after cleaning indicates better signal extraction.
 
-Summary:
+**Sample analysis**
+Applying these tools to Queensland's tourism data reveals: a strong upward trend (trend strength = 0.82, visible in the 8-quarter moving average) and moderate seasonality (seasonal strength = 0.59). The series appears non-stationary visually and shows modest lag-1 autocorrelation (x_acf1 = 0.543)
+
+**Final thoughts**
+Understanding time series characteristics before modeling is essential. The metrics discussed here (decomposition, seasonality, trend, autocorrelation, stationarity, and entropy) provide a framework to kickstart the analysis. Researchers can capitalize python tools such as tsfeatures for their Exploratory Data Analysis. 
 
 
-Data:
-Air Travel
-Real Estate prices
+Codes used to generate the figures may be found here: [View Code Repository on GitHub](https://github.com/MichaelCastanares/Github/tree/f69d5a97156678120379d8c40b728951e5d25432/GoogleTrends)
 
-Code:
+Disclaimer of AI use: Claude Sonnet was used to improve the flow of the discussion.
 
 references
 
 https://www.youtube.com/watch?v=rcdDl8qf0ZA
 https://otexts.com/fpp2/#
+
+https://otexts.com/fpp2/seasonal-strength.html
