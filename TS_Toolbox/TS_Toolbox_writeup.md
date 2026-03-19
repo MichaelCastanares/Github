@@ -4,7 +4,7 @@
 In the age of Do-It-Yourself (DIY) projects, it is essential to have a toolbox. We all have go-to tools that make our work easier. For me, that would be a drill or racquet screw-driver.
 
 For time-series forecasters, the common tools would be benchmark models, residuals, and error metrics. In this blog, I will discuss and share these tools. My goal is to introduce and review these foundational tools useful for us forecasters.
-
+ 
 **Data**. We will be using an the AUD/PH Exchange rate daily series source from the [Reserve Bank of Australia](https://www.rba.gov.au/statistics/historical-data.html#exchange-rates).
 
 ### A. Simple models
