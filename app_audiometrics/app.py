@@ -495,6 +495,11 @@ def check_password():
     if st.session_state.get("password_correct") is False:
         st.error("😕 Incorrect password.")
     
+    # 0) Reload data/clear cache
+    if st.button("🔄 Reload Data/Clear Cache"):
+        st.cache_data.clear()  # Wipes the cache
+        st.rerun()             # Reruns the script to fetch new data
+    
     return False
 
 
@@ -503,11 +508,6 @@ def check_password():
 # --------------------------------------------------------------------------- #
 def main():
     st.set_page_config(page_title="Audio Metrics — SNR & WER", page_icon="🎙️")
-    # 0) Reload data/clear cache
-    if st.button("🔄 Reload Data/Clear Cache"):
-        st.cache_data.clear()  # Wipes the cache
-        st.rerun()             # Reruns the script to fetch new data
-    
     
     if not check_password():
         st.stop()
