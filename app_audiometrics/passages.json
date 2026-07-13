@@ -1,5 +1,5 @@
 {
-  "rainbow_0": {
+  "rainbow": {
     "title": "The Rainbow Passage with pauses",
     "lines": [
       "When the sunlight strikes raindrops in the air, they act as a prism and form a rainbow.",
@@ -10,30 +10,16 @@
       "When a man looks for something beyond his reach, his friends say he is looking for the pot of gold at the end of the rainbow."
     ]
   },
-  "harvard_2": {
-    "title": "Harvard Sentences — Set 2",
+  "The Grandfather Passage": {
+    "title": "The Grandfather Passage",
     "lines": [
-      "The boy was there when the sun rose.",
-      "A rod is used to catch pink salmon.",
-      "The source of the huge river is the clear spring.",
-      "Kick the ball straight and follow through.",
-      "Help the woman get back to her feet.",
-      "A pot of tea helps to pass the evening.",
-      "Smoky fires lack flame and heat.",
-      "The soft cushion broke the man's fall.",
-      "The salt breeze came across from the sea.",
-      "The girl at the booth sold fifty bonds."
+      "You wished to know all about my grandfather. Well, he is nearly ninety-three years old;",
+      "[pause]",
+      "he dresses himself in an ancient black frock coat, usually minus several buttons; yet he still thinks as swiftly as ever. "
+      "We have often urged him to walk more and smoke less, but he always answers, 'Banana oil!'",
+      "[pause]",
+      "Grandfather likes to be modern in his language."
     ]
   },
-  "rainbow": {
-    "title": "The Rainbow Passage",
-    "lines": [
-      "When the sunlight strikes raindrops in the air, they act as a prism and form a rainbow.",
-      "The rainbow is a division of white light into many beautiful colors.",
-      "These take the shape of a long round arch, with its path high above, and its two ends apparently beyond the horizon.",
-      "There is, according to legend, a boiling pot of gold at one end.",
-      "People look, but no one ever finds it.",
-      "When a man looks for something beyond his reach, his friends say he is looking for the pot of gold at the end of the rainbow."
-    ]
-  }
+
 }
