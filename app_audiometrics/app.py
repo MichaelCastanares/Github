@@ -503,6 +503,12 @@ def check_password():
 # --------------------------------------------------------------------------- #
 def main():
     st.set_page_config(page_title="Audio Metrics — SNR & WER", page_icon="🎙️")
+    # 0) Reload data/clear cache
+    if st.button("🔄 Reload Data/Clear Cache"):
+        st.cache_data.clear()  # Wipes the cache
+        st.rerun()             # Reruns the script to fetch new data
+    
+    
     if not check_password():
         st.stop()
     init_db()
@@ -513,10 +519,6 @@ def main():
     st.caption(
         "Read the passage aloud in ~60 seconds. We measure SNR and Word Error Rate.")
 
-    # 0) Reload data/clear cache
-    if st.button("🔄 Reload Data/Clear Cache"):
-        st.cache_data.clear()  # Wipes the cache
-        st.rerun()             # Reruns the script to fetch new data
 
     # 1) Environment (captured before recording) -------------------------- #
     st.subheader("Environment")
