@@ -513,6 +513,11 @@ def main():
     st.caption(
         "Read the passage aloud in ~60 seconds. We measure SNR and Word Error Rate.")
 
+    # 0) Reload data/clear cache
+    if st.button("🔄 Reload Data/Clear Cache"):
+        st.cache_data.clear()  # Wipes the cache
+        st.rerun()             # Reruns the script to fetch new data
+
     # 1) Environment (captured before recording) -------------------------- #
     st.subheader("Environment")
     env_choice = st.selectbox("Recording environment", ENV_CHOICES)
