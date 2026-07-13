@@ -3,7 +3,7 @@
 A Streamlit app that measures **signal-to-noise ratio** and **word error rate**
 from a spoken passage. The user reads a displayed passage aloud (~60s); the app
 records the audio, estimates SNR, transcribes with faster-whisper, scores WER
-against the reference, and logs each session to SQLite.
+against the reference, and holds the results in memory until you export them.
 
 ## Setup
 
@@ -35,7 +35,7 @@ context.
 | Recording | Custom component (`components/recorder/`) — browser WebAudio capture + a paced reading guide in one iframe. One button starts mic recording *and* the line-by-line guide together; both auto-stop at 60s. Audio is encoded to a 16 kHz mono WAV in JS and returned to Python as base64. |
 | SNR | Energy-based: frame the signal, split frames into speech vs. noise at the geometric-mean midpoint of the quiet floor and loud peak, `SNR = 10·log10((P_speech − P_noise) / P_noise)`. Relies on natural pauses in the reading. |
 | WER | `faster-whisper` transcribes → normalized (lowercase, punctuation-stripped) → `jiwer`. |
-| Storage | `sessions` table in `audio_metrics.db`; WAVs saved under `recordings/`. |
+| Storage | **None — nothing touches disk.** A session begins when you enter the password; readings you save accumulate in memory (`st.session_state`) for that login only. Export writes them to a zip you download. Refreshing, logging in again, or closing the tab discards them. |
 
 ## Adding passages
 
@@ -56,7 +56,7 @@ Edit `passages.json`:
    - `requirements.txt` — Python deps
    - `packages.txt` — system libs (`libsndfile1`, `ffmpeg`) for audio decoding
    - `.python-version` → `3.11` (avoids the 3.9.7 streamlit blacklist)
-   - `.gitignore` — keeps the local DB/recordings out of the repo
+   - `.gitignore` — keeps stray local data out of the repo
 2. Go to **share.streamlit.io** → *New app* → pick the repo, branch, and
    `app.py` as the entrypoint.
 3. In **Advanced settings**, set **Python version to 3.11+** and add your
@@ -77,20 +77,24 @@ open (handy for local dev). For local testing, copy
 set the value. This is a single shared password — fine for limiting access, not
 a substitute for per-user accounts.
 
-> ⚠️ **Storage is ephemeral.** The container's disk (SQLite DB + `recordings/`)
-> is wiped on every restart or redeploy. Use the **📥 Data export** panel in the
-> sidebar to download your sessions (CSV), the SQLite `.db`, and the recordings
-> (zip) **before** that happens. For durable storage, move to a host with a
-> persistent volume (Render/Fly/HF Spaces) or swap SQLite→Postgres + WAVs→S3/GCS.
+> ⚠️ **Nothing is persisted.** Your readings live in memory for the current
+> login only. Use **📥 Data export** in the sidebar to download them as a zip
+> (`sessions.csv` + `recordings/*.wav`) **before** you refresh or close the tab —
+> otherwise they're gone. This is deliberate: the container's disk is wiped on
+> every restart anyway, and a shared on-disk store would let one user's export
+> carry away another user's voice recordings. For durable multi-session storage,
+> add a real backend (Postgres + S3/GCS) with per-user scoping.
 
 Because the recordings are voice data (PII), consider adding access control
-(Streamlit's built-in authentication) before sharing the URL widely.
+(Streamlit's built-in authentication) before sharing the URL widely. The single
+shared `APP_PASSWORD` gates access but does not distinguish between users.
 
 ## Notes / roadmap
 
 - **SNR** is a simple energy estimate — upgrade to VAD-based or WADA-SNR later
-  without touching the UI (swap `compute_snr`). Saved WAVs allow re-analysis.
+  without touching the UI (swap `compute_snr`). Exported WAVs allow re-analysis.
 - **Whisper model size** is the main cloud-cost knob (`WHISPER_MODEL_SIZE` in
   `app.py`). `small` runs ~real-time on CPU; `medium`/`large` want a GPU.
-- **SQLite on ephemeral cloud disks** (e.g. Streamlit Community Cloud) is wiped
-  on restart — point at a mounted volume or move to Postgres when deploying.
+- **No cross-session history.** Each login starts empty by design. If you need
+  data to survive a logout, add a backend that scopes rows to an authenticated
+  user — don't reintroduce a shared local SQLite file.

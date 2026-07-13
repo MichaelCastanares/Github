@@ -13,7 +13,6 @@ import json
 import re
 import hmac
 import base64
-import sqlite3
 import hashlib
 import zipfile
 from html import escape as html_escape
@@ -30,8 +29,12 @@ import streamlit.components.v1 as components
 # --------------------------------------------------------------------------- #
 APP_DIR = Path(__file__).parent
 PASSAGES_FILE = APP_DIR / "passages.json"
-DB_FILE = APP_DIR / "audio_metrics.db"
-RECORDINGS_DIR = APP_DIR / "recordings"
+
+# Recorded data is held in memory for the duration of one login and is never
+# written to disk: the deployment's storage is ephemeral anyway, and a shared
+# on-disk store would let one user's export carry away everyone else's audio.
+ROWS_KEY = "session_rows"     # list[dict] — one entry per saved reading
+WAVS_KEY = "session_wavs"     # dict[filename -> wav bytes]
 
 def get_setting(key, default=None):
     """Read a config value from st.secrets (Streamlit Cloud) or the environment."""
@@ -273,127 +276,104 @@ def compute_wer(reference, hypothesis):
 
 
 # --------------------------------------------------------------------------- #
-# Persistence
+# Persistence — in-memory, scoped to one login
+#
+# A "session" here is one login: the store is created when the password is
+# accepted and lives only as long as st.session_state does. Readings saved
+# during the login accumulate in it; a refresh or new login starts empty.
 # --------------------------------------------------------------------------- #
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS sessions (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp   TEXT,
-            passage_id  TEXT,
-            snr_db      REAL,
-            wer         REAL,
-            environment TEXT,
-            notes       TEXT,
-            transcript  TEXT,
-            duration_s  REAL,
-            audio_path  TEXT
-        )
-        """
-    )
-    conn.commit()
-    conn.close()
+CSV_COLUMNS = [
+    "n", "timestamp", "passage_id", "snr_db", "wer", "environment",
+    "notes", "transcript", "duration_s", "recording_file",
+]
 
 
-def save_session(row):
-    conn = sqlite3.connect(DB_FILE)
-    conn.execute(
-        """
-        INSERT INTO sessions
-            (timestamp, passage_id, snr_db, wer, environment, notes,
-             transcript, duration_s, audio_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            row["timestamp"], row["passage_id"], row["snr_db"], row["wer"],
-            row["environment"], row["notes"], row["transcript"],
-            row["duration_s"], row["audio_path"],
-        ),
-    )
-    conn.commit()
-    conn.close()
+def start_session():
+    """Begin a fresh login session, discarding anything from a previous one."""
+    st.session_state[ROWS_KEY] = []
+    st.session_state[WAVS_KEY] = {}
 
 
-def save_wav(wav_bytes, passage_id):
-    RECORDINGS_DIR.mkdir(exist_ok=True)
+def session_rows():
+    return st.session_state.setdefault(ROWS_KEY, [])
+
+
+def session_wavs():
+    return st.session_state.setdefault(WAVS_KEY, {})
+
+
+def save_session(row, wav_bytes):
+    """Add one reading (metadata + audio) to the current login's store."""
+    rows, wavs = session_rows(), session_wavs()
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = RECORDINGS_DIR / f"{passage_id}_{stamp}.wav"
-    with open(path, "wb") as fh:
-        fh.write(wav_bytes)
-    return str(path)
+    filename = f"{row['passage_id']}_{stamp}.wav"
+    # Two saves inside the same second would otherwise collide on the name.
+    if filename in wavs:
+        filename = f"{row['passage_id']}_{stamp}_{len(rows) + 1}.wav"
+    wavs[filename] = wav_bytes
+    rows.append({**row, "n": len(rows) + 1,
+                 "recording_file": f"recordings/{filename}"})
 
 
 # --------------------------------------------------------------------------- #
-# Data export (Streamlit Cloud storage is ephemeral — let users pull data out)
+# Data export — one zip with this login's CSV + recordings
 # --------------------------------------------------------------------------- #
-def get_sessions_rows():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    try:
-        return [dict(r) for r in conn.execute("SELECT * FROM sessions ORDER BY id")]
-    finally:
-        conn.close()
-
-
 def sessions_csv_bytes(rows):
     if not rows:
         return b""
     buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+    writer = csv.DictWriter(buf, fieldnames=CSV_COLUMNS)
     writer.writeheader()
     writer.writerows(rows)
     return buf.getvalue().encode("utf-8")
 
 
-def export_signature():
-    """Cheap fingerprint of everything the export contains, so the zip is only
-    rebuilt when the data actually changes rather than on every rerun."""
-    parts = []
-    if DB_FILE.exists():
-        s = DB_FILE.stat()
-        parts.append((DB_FILE.name, s.st_size, s.st_mtime_ns))
-    if RECORDINGS_DIR.exists():
-        for p in sorted(RECORDINGS_DIR.glob("*.wav")):
-            s = p.stat()
-            parts.append((p.name, s.st_size, s.st_mtime_ns))
-    return tuple(parts)
+def build_export_zip(rows, wavs):
+    """CSV plus every recording from this login, in a single archive.
 
-
-@st.cache_data(show_spinner=False)
-def build_export_zip(_signature):
-    """One archive with the sessions CSV, the SQLite database and every recording."""
+    Each row's recording_file column matches the path of its WAV inside the zip.
+    """
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        rows = get_sessions_rows()
-        if rows:
-            z.writestr("sessions.csv", sessions_csv_bytes(rows))
-        if DB_FILE.exists():
-            z.write(DB_FILE, arcname="audio_metrics.db")
-        if RECORDINGS_DIR.exists():
-            for p in sorted(RECORDINGS_DIR.glob("*.wav")):
-                z.write(p, arcname=f"recordings/{p.name}")
+        z.writestr("sessions.csv", sessions_csv_bytes(rows))
+        for filename, wav_bytes in wavs.items():
+            z.writestr(f"recordings/{filename}", wav_bytes)
     return buf.getvalue()
+
+
+def export_zip_bytes():
+    """Build the archive, reusing the last one until a new reading is saved.
+
+    st.download_button needs the bytes up front, so this runs on every rerun
+    (every keystroke, every widget change) — hence the cache. It's kept in
+    session_state rather than st.cache_data because the data belongs to this
+    login and must never be shared with another user's session.
+    """
+    rows, wavs = session_rows(), session_wavs()
+    cached = st.session_state.get("export_cache")
+    if cached and cached[0] == len(rows):
+        return cached[1]
+    data = build_export_zip(rows, wavs)
+    st.session_state["export_cache"] = (len(rows), data)
+    return data
 
 
 def render_sidebar():
     st.sidebar.header("📥 Data export")
     st.sidebar.caption(
-        "Cloud storage is temporary — download your data before the app restarts."
+        "Your readings are held in memory for this login only — download them "
+        "before you refresh or close the tab, or they're gone."
     )
-    rows = get_sessions_rows()
-    n_wavs = len(list(RECORDINGS_DIR.glob("*.wav"))) if RECORDINGS_DIR.exists() else 0
-    st.sidebar.write(f"**{len(rows)}** saved session(s) · **{n_wavs}** recording(s)")
-    signature = export_signature()
+    rows = session_rows()
+    st.sidebar.write(f"**{len(rows)}** reading(s) saved this session")
     st.sidebar.download_button(
-        "Export all data (zip)",
-        build_export_zip(signature) if signature else b"",
-        "audio_metrics_export.zip",
+        "Export session data (zip)",
+        export_zip_bytes() if rows else b"",
+        "audio_metrics_session.zip",
         "application/zip",
-        disabled=not signature,
+        disabled=not rows,
         use_container_width=True,
-        help="Sessions CSV, SQLite database and all recordings in a single zip.",
+        help="This session's readings (CSV) and their recordings, in one zip.",
     )
 
 
@@ -482,6 +462,7 @@ def check_password():
         if hmac.compare_digest(str(entered), str(password)):
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # don't keep the raw password around
+            start_session()  # the login *is* the session — begin with an empty store
         else:
             st.session_state["password_correct"] = False
 
@@ -506,7 +487,6 @@ def main():
     
     if not check_password():
         st.stop()
-    init_db()
     render_sidebar()
     passages = load_passages()
 
@@ -648,13 +628,12 @@ def main():
             "Notes", placeholder="e.g. mic clipped, background AC, retook twice")
 
         if st.session_state.get("saved"):
-            st.success("Session saved ✓")
+            st.success("Reading saved ✓ — export it from the sidebar before you "
+                       "close the tab.")
         elif st.button("💾 Save session", type="primary"):
             if env_choice == "Other" and not environment:
                 st.error("Please describe the environment before saving.")
             else:
-                audio_path = save_wav(
-                    st.session_state["wav_bytes"], passage_id)
                 save_session({
                     "timestamp": datetime.now().isoformat(timespec="seconds"),
                     "passage_id": passage_id,
@@ -664,8 +643,7 @@ def main():
                     "notes": notes.strip(),
                     "transcript": result["transcript"],
                     "duration_s": result["duration_s"],
-                    "audio_path": audio_path,
-                })
+                }, st.session_state["wav_bytes"])
                 st.session_state["saved"] = True
                 st.rerun()
 
