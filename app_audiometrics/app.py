@@ -347,11 +347,33 @@ def sessions_csv_bytes(rows):
     return buf.getvalue().encode("utf-8")
 
 
-def build_recordings_zip():
+def export_signature():
+    """Cheap fingerprint of everything the export contains, so the zip is only
+    rebuilt when the data actually changes rather than on every rerun."""
+    parts = []
+    if DB_FILE.exists():
+        s = DB_FILE.stat()
+        parts.append((DB_FILE.name, s.st_size, s.st_mtime_ns))
+    if RECORDINGS_DIR.exists():
+        for p in sorted(RECORDINGS_DIR.glob("*.wav")):
+            s = p.stat()
+            parts.append((p.name, s.st_size, s.st_mtime_ns))
+    return tuple(parts)
+
+
+@st.cache_data(show_spinner=False)
+def build_export_zip(_signature):
+    """One archive with the sessions CSV, the SQLite database and every recording."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for p in sorted(RECORDINGS_DIR.glob("*.wav")):
-            z.write(p, arcname=p.name)
+        rows = get_sessions_rows()
+        if rows:
+            z.writestr("sessions.csv", sessions_csv_bytes(rows))
+        if DB_FILE.exists():
+            z.write(DB_FILE, arcname="audio_metrics.db")
+        if RECORDINGS_DIR.exists():
+            for p in sorted(RECORDINGS_DIR.glob("*.wav")):
+                z.write(p, arcname=f"recordings/{p.name}")
     return buf.getvalue()
 
 
@@ -361,22 +383,18 @@ def render_sidebar():
         "Cloud storage is temporary — download your data before the app restarts."
     )
     rows = get_sessions_rows()
-    st.sidebar.write(f"**{len(rows)}** saved session(s)")
+    n_wavs = len(list(RECORDINGS_DIR.glob("*.wav"))) if RECORDINGS_DIR.exists() else 0
+    st.sidebar.write(f"**{len(rows)}** saved session(s) · **{n_wavs}** recording(s)")
+    signature = export_signature()
     st.sidebar.download_button(
-        "Sessions CSV", sessions_csv_bytes(rows), "sessions.csv", "text/csv",
-        disabled=not rows, use_container_width=True,
+        "Export all data (zip)",
+        build_export_zip(signature) if signature else b"",
+        "audio_metrics_export.zip",
+        "application/zip",
+        disabled=not signature,
+        use_container_width=True,
+        help="Sessions CSV, SQLite database and all recordings in a single zip.",
     )
-    if DB_FILE.exists():
-        st.sidebar.download_button(
-            "SQLite database", DB_FILE.read_bytes(), "audio_metrics.db",
-            "application/octet-stream", use_container_width=True,
-        )
-    has_wavs = RECORDINGS_DIR.exists() and any(RECORDINGS_DIR.glob("*.wav"))
-    if has_wavs:
-        st.sidebar.download_button(
-            "Recordings (zip)", build_recordings_zip(), "recordings.zip",
-            "application/zip", use_container_width=True,
-        )
 
 
 # --------------------------------------------------------------------------- #
