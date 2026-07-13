@@ -467,10 +467,17 @@ def check_password():
         else:
             st.session_state["password_correct"] = False
 
-    st.title("🔒 Audio Metrics")
+    st.title("Audio Metrics")
+    st.caption("This app measures SNR and Word Error Rate from a read passage.")
+    st.caption("Designed by M. Castanares")
+    st.caption("Please enter the password to access the app.")
     st.text_input("Password", type="password", on_change=_verify, key="password")
+    st.text("""By proceeding, you agree to the terms of use and privacy policy.
+            The app temporarily captures the audio/microphone input for analysis purposes only. does not store or share any personal data.""")
+    
     if st.session_state.get("password_correct") is False:
         st.error("😕 Incorrect password.")
+    
     return False
 
 
