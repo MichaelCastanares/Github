@@ -569,8 +569,10 @@ def main():
                 Next steps:
                 1. Make notes/observations that resulted in low WER;
                 2. Save session; and
-                3. Refresh browser.
-                Note: Read the passage exactly as shown, at a steady pace."""
+                3. Redo recording.
+                Note: Read the passage exactly as shown, at a steady pace.
+                
+                WARNING: Do not refresh browser as data will be lost."""
             )
         else:
             st.success(
@@ -579,7 +581,11 @@ def main():
                 Next steps:
                 1. Make notes/observations that resulted in improvement;
                 2. Save session; and
-                3. Refresh browser. """
+                3. Select new passage and start recording. 
+                
+                After successfully completing all passages, click export session data.
+
+                WARNING: Do not refresh browser as data will be lost."""
             )
 
         st.caption(f"SNR method: {result['snr'].get('method', 'n/a')}")
