@@ -1,0 +1,41 @@
+# ---- macOS ----
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Type checker / linter caches
+.mypy_cache/
+.dmypy.json
+.pytype/
+.ruff_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---- Streamlit ----
+.streamlit/secrets.toml
+
+# ---- Editors / IDE ----
+.vscode/
+.idea/
+*.swp
+*~
